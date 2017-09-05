@@ -133,10 +133,10 @@ int shIsEnumValid(SHint type, VGint val)
             val == VG_COLOR_RAMP_SPREAD_REFLECT);
     
   case VG_PAINT_PATTERN_TILING_MODE:
-    return (VG_TILE_FILL ||
-            VG_TILE_PAD ||
-            VG_TILE_REPEAT ||
-            VG_TILE_REFLECT);
+    return (val == VG_TILE_FILL ||
+            val == VG_TILE_PAD ||
+            val == VG_TILE_REPEAT ||
+            val == VG_TILE_REFLECT);
     
   case VG_IMAGE_FORMAT:
     return (val >= VG_sRGBX_8888 &&
@@ -387,10 +387,9 @@ static void shSet(VGContext *context, VGParamType type, SHint count,
     break;
   case VG_SCISSOR_RECTS:
     
-    /* TODO: limit by the VG_MAX_SCISSOR_RECTS value */
     SH_RETURN_ERR_IF(count % 4, VG_ILLEGAL_ARGUMENT_ERROR, SH_NO_RETVAL);
     shRectArrayClear(&context->scissor);
-    for (i=0; i<count; i+=4) {
+    for (i=0; i<count && i<SH_MAX_SCISSOR_RECTS; i+=4) {
       SHRectangle r;
       r.x = shParamToFloat(values, floats, i+0);
       r.y = shParamToFloat(values, floats, i+1);
@@ -841,9 +840,7 @@ static void shSetParameter(VGContext *context, VGHandle object,
                            SHResourceType rtype, VGint ptype,
                            SHint count, const void *values, SHint floats)
 {
-  SHfloat fvalue = 0.0f;
   SHint ivalue = 0;
-  VGboolean bvalue = VG_FALSE;
   int i;
   
   /* Check for negative count */
@@ -854,9 +851,7 @@ static void shSetParameter(VGContext *context, VGHandle object,
   
   /* Pre-convert first value for non-vector params */
   if (count == 1) {
-    fvalue = shParamToFloat(values, floats, 0);
     ivalue = shParamToInt(values, floats, 0);
-    bvalue = (ivalue ? VG_TRUE : VG_FALSE);
   }
   
   switch (rtype)

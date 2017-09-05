@@ -51,8 +51,12 @@ void SHPaint_ctor(SHPaint *p)
   p->tilingMode = VG_TILE_FILL;
   for (i=0; i<4; ++i) p->linearGradient[i] = 0.0f;
   for (i=0; i<5; ++i) p->radialGradient[i] = 0.0f;
-  glGenTextures(1, &p->texture);
   p->pattern = VG_INVALID_HANDLE;
+  
+  glGenTextures(1, &p->texture);
+  glBindTexture(GL_TEXTURE_1D, p->texture);
+  glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, SH_GRADIENT_TEX_SIZE, 0,
+               GL_RGBA, GL_FLOAT, NULL);
 }
 
 void SHPaint_dtor(SHPaint *p)
@@ -118,6 +122,18 @@ VG_API_CALL void vgSetPaint(VGPaint paint, VGbitfield paintModes)
   VG_RETURN(VG_NO_RETVAL);
 }
 
+VG_API_CALL VGPaint vgGetPaint(VGPaintMode paintMode)
+{
+  VG_GETCONTEXT(VGPaint());
+
+  if (paintMode & VG_STROKE_PATH)
+    VG_RETURN((VGPaint) context->strokePaint);
+  if (paintMode & VG_FILL_PATH)
+    VG_RETURN((VGPaint) context->fillPaint);
+  
+  VG_RETURN(VGPaint());
+}
+
 VG_API_CALL void vgPaintPattern(VGPaint paint, VGImage pattern)
 {
   VG_GETCONTEXT(VG_NO_RETVAL);
@@ -178,8 +194,8 @@ void shUpdateColorRampTexture(SHPaint *p)
   /* Update texture image */
   glBindTexture(GL_TEXTURE_1D, p->texture);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, SH_GRADIENT_TEX_SIZE, 0,
-               GL_RGBA, GL_FLOAT, rgba);
+  glTexSubImage1D(GL_TEXTURE_1D, 0, 0, SH_GRADIENT_TEX_SIZE,
+                  GL_RGBA, GL_FLOAT, rgba);
 }
 
 void shValidateInputStops(SHPaint *p)
@@ -416,7 +432,7 @@ int shDrawLinearGradientMesh(SHPaint *p, SHVector2 *min, SHVector2 *max,
   SH_GETCONTEXT(0);
   if (mode == VG_FILL_PATH)
     m = &context->fillTransform;
-  else if (mode == VG_STROKE_PATH)
+  else // (mode == VG_STROKE_PATH)
     m = &context->strokeTransform;
   
   /* Gradient center and unit vectors */
@@ -531,7 +547,7 @@ int shDrawRadialGradientMesh(SHPaint *p, SHVector2 *min, SHVector2 *max,
   SHfloat startA=0.0f;
   
   int numsteps = 100;
-  float step = 2*PI/numsteps;
+  float step;
   SHVector2 tmin, tmax;
   SHVector2 min1, max1, min2, max2;
   
@@ -539,7 +555,7 @@ int shDrawRadialGradientMesh(SHPaint *p, SHVector2 *min, SHVector2 *max,
   SH_GETCONTEXT(0);
   if (mode == VG_FILL_PATH)
     m = &context->fillTransform;
-  else if (mode == VG_STROKE_PATH)
+  else // (mode == VG_STROKE_PATH)
     m = &context->strokeTransform;
   
   /* Move focus into circle if outside */
@@ -631,11 +647,11 @@ int shDrawRadialGradientMesh(SHPaint *p, SHVector2 *min, SHVector2 *max,
       f.y >= min->y && f.y <= max->y) {
     
     /* Draw whole circle */
-    minOffset = 0.0f;
     startA = 0.0f;
     maxA = 2*PI;
     
-  }else{
+  }
+  else {
     
     /* Find most distant corner pair */
     for (i=0; i<3; ++i) {
@@ -732,7 +748,7 @@ int shDrawPatternMesh(SHPaint *p, SHVector2 *min, SHVector2 *max,
   SH_GETCONTEXT(0);
   if (mode == VG_FILL_PATH)
     m = &context->fillTransform;
-  else if (mode == VG_STROKE_PATH)
+  else // (mode == VG_STROKE_PATH)
     m = &context->strokeTransform;
   
   /* Boundbox corners */

@@ -47,9 +47,9 @@
 /* Type definitions */
 
 #if defined(HAVE_CONFIG_H)
-#include "../config.h"
+#include <config.h>
 #
-#  if HAVE_INTTYPES_H
+#  if defined(HAVE_INTTYPES_H)
 #  include <inttypes.h>
 #  endif
 #
@@ -111,6 +111,7 @@ SHfloat getMaxFloat();
 #define SH_ATAN   (float)atan
 #define SH_FLOOR  (float)floor
 #define SH_CEIL   (float)ceil
+#define SH_LOG    (float)log
 #define SH_ASSERT assert
 
 #if defined(__isnan) || (defined(__APPLE__) && (__GNUC__ == 3))
@@ -133,6 +134,7 @@ SHfloat getMaxFloat();
 #define SH_NEARZERO(a) (a >= -0.0001 && a < 0.0001)
 #define SH_SWAP(a,b) {SHfloat t=a; a=b; b=t;}
 #define SH_CLAMP(a,min,max) {if (a<min) a=min; if (a>max) a=max; }
+#define SH_DIST(a,b,x,y) SH_SQRT( ((x-a)*(x-a)) + ((y-b)*(y-b))  )
 
 #define SH_NEWOBJ(type,obj) { obj = (type*)malloc(sizeof(type)); if(obj) type ## _ctor(obj); }
 #define SH_INITOBJ(type,obj){ type ## _ctor(&obj); }
@@ -141,7 +143,7 @@ SHfloat getMaxFloat();
 
 /* Implementation limits */
 
-#define SH_MAX_SCISSOR_RECTS             VG_MAXINT
+#define SH_MAX_SCISSOR_RECTS             1
 #define SH_MAX_DASH_COUNT                VG_MAXINT
 #define SH_MAX_IMAGE_WIDTH               VG_MAXINT
 #define SH_MAX_IMAGE_HEIGHT              VG_MAXINT
@@ -164,9 +166,9 @@ SHfloat getMaxFloat();
 #  include <GL/gl.h>
 #  include <GL/glu.h>
 #else
-#  define GL_GLEXT_LEGACY /* don't include glext.h */
 #  include <GL/gl.h>
 #  include <GL/glu.h>
+#  define GL_GLEXT_LEGACY /* don't include glext.h */
 #  include <GL/glx.h>
 #endif
 

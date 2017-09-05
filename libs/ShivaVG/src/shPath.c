@@ -41,7 +41,7 @@
 
 static const SHint shCoordsPerCommand[] = {
   0, /* VG_CLOSE_PATH */
-  2, /* VG_MOTE_TO */
+  2, /* VG_MOVE_TO */
   2, /* VG_LINE_TO */
   1, /* VG_HLINE_TO */
   1, /* VG_VLINE_TO */
@@ -163,6 +163,11 @@ VG_API_CALL VGPath vgCreatePath(VGint pathFormat,
   p->dataHint = coordCapacityHint;
   p->datatype = datatype;
   p->caps = capabilities & VG_PATH_CAPABILITY_ALL;
+
+  /* Init cache flags */
+  p->cacheDataValid = VG_TRUE;
+  p->cacheTransformInit = VG_FALSE;
+  p->cacheStrokeInit = VG_FALSE;
   
   VG_RETURN((VGPath)p);
 }
@@ -188,6 +193,9 @@ VG_API_CALL void vgClearPath(VGPath path, VGbitfield capabilities)
   p->data = NULL;
   p->segCount = 0;
   p->dataCount = 0;
+
+  /* Mark change */
+  p->cacheDataValid = VG_FALSE;
   
   /* Downsize arrays to save memory */
   shVertexArrayRealloc(&p->vertices, 1);
@@ -346,6 +354,7 @@ static int shResizePathData(SHPath *p, SHint newSegCount, SHint newDataCount,
   return 1;
 }
 
+
 /*-------------------------------------------------------------
  * Appends path data from source to destination path resource
  *-------------------------------------------------------------*/
@@ -393,6 +402,9 @@ VG_API_CALL void vgAppendPath(VGPath dstPath, VGPath srcPath)
   dst->data = newData;
   dst->segCount += src->segCount;
   dst->dataCount += src->dataCount;
+
+  /* Mark change */
+  dst->cacheDataValid = VG_FALSE;
   
   VG_RETURN(VG_NO_RETVAL);
 }
@@ -458,6 +470,9 @@ VG_API_CALL void vgAppendPathData(VGPath dstPath, VGint newSegCount,
   dst->data = newData;
   dst->segCount += newSegCount;
   dst->dataCount += newDataCount;
+
+  /* Mark change */
+  dst->cacheDataValid = VG_FALSE;
   
   VG_RETURN(VG_NO_RETVAL);
 }
@@ -506,12 +521,15 @@ VG_API_CALL void vgModifyPathCoords(VGPath dstPath, VGint startIndex,
   }else{
     memcpy( ((SHuint8*)p->data) + dataStartSize, data, newDataSize);
   }
+
+  /* Mark change */
+  p->cacheDataValid = VG_FALSE;
   
   VG_RETURN(VG_NO_RETVAL);
 }
 
 /*------------------------------------------------------------
- * Converts standart endpoint arc parametrization into center
+ * Converts standard endpoint arc parametrization into center
  * arc parametrization for further internal processing
  *------------------------------------------------------------*/
 
@@ -660,7 +678,7 @@ void shProcessPathData(SHPath *p,
                        SegmentFunc callback,
                        void *userData)
 {
-  SHint i=0, s=0, d=0, c=0;
+  SHint i=0, s=0, d=0;
   SHuint command;
   SHuint segment;
   SHint segindex;
@@ -681,7 +699,7 @@ void shProcessPathData(SHPath *p,
     
     /* Extract command */
     command = (p->segs[s]);
-    absrel = (command & 1);
+    absrel = (VGPathAbsRel)(command & 1);
     segment = (command & 0x1E);
     segindex = (segment >> 1);
     numcoords = shCoordsPerCommand[segindex];
@@ -697,7 +715,7 @@ void shProcessPathData(SHPath *p,
       if (!open && segment != VG_MOVE_TO) {
         data[0] = pen.x; data[1] = pen.y;
         data[2] = pen.x; data[3] = pen.y;
-        (*callback)(p,VG_MOVE_TO,command,data,userData);
+        (*callback)(p,VG_MOVE_TO, (VGPathCommand)command,data,userData);
         open = 1;
       }
       
@@ -715,17 +733,16 @@ void shProcessPathData(SHPath *p,
     /* Place pen into first two coords */
     data[0] = pen.x;
     data[1] = pen.y;
-    c = 2;
     
     /* Unpack coordinates from path data */
     for (i=0; i<numcoords; ++i)
-      data[c++] = shRealCoordFromData(p->datatype, p->scale, p->bias,
-                                      p->data, d+i);
+      data[i + 2] = shRealCoordFromData(p->datatype, p->scale, p->bias, p->data, d+i);
     
     /* Simplify complex segments */
     switch (segment)
     {
     case VG_CLOSE_PATH:
+      assert(numcoords == 0);
       
       data[2] = start.x;
       data[3] = start.y;
@@ -734,10 +751,11 @@ void shProcessPathData(SHPath *p,
       SET2V(tan, start);
       open = 0;
       
-      (*callback)(p,VG_CLOSE_PATH,command,data,userData);
+      (*callback)(p,VG_CLOSE_PATH, (VGPathCommand)command,data,userData);
       
       break;
     case VG_MOVE_TO:
+      assert(numcoords == 2);
       
       if (absrel == VG_RELATIVE) {
         data[2] += pen.x; data[3] += pen.y;
@@ -748,10 +766,11 @@ void shProcessPathData(SHPath *p,
       SET2V(tan, pen);
       open = 1;
       
-      (*callback)(p,VG_MOVE_TO,command,data,userData);
+      (*callback)(p,VG_MOVE_TO, (VGPathCommand)command,data,userData);
       
       break;
     case VG_LINE_TO:
+      assert(numcoords == 2);
       
       if (absrel == VG_RELATIVE) {
         data[2] += pen.x; data[3] += pen.y;
@@ -760,10 +779,11 @@ void shProcessPathData(SHPath *p,
       SET2(pen, data[2], data[3]);
       SET2V(tan, pen);
       
-      (*callback)(p,VG_LINE_TO,command,data,userData);
+      (*callback)(p,VG_LINE_TO, (VGPathCommand)command,data,userData);
       
       break;
     case VG_HLINE_TO:
+      assert(numcoords == 1);
       
       if (absrel == VG_RELATIVE)
         data[2] += pen.x;
@@ -773,14 +793,15 @@ void shProcessPathData(SHPath *p,
       
       if (flags & SH_PROCESS_SIMPLIFY_LINES) {
         data[3] = pen.y;
-        (*callback)(p,VG_LINE_TO,command,data,userData);
+        (*callback)(p,VG_LINE_TO, (VGPathCommand)command,data,userData);
         break;
       }
       
-      (*callback)(p,VG_HLINE_TO,command,data,userData);
+      (*callback)(p,VG_HLINE_TO, (VGPathCommand)command,data,userData);
       
       break;
     case VG_VLINE_TO:
+      assert(numcoords == 1);
       
       if (absrel == VG_RELATIVE)
         data[2] += pen.y;
@@ -790,14 +811,15 @@ void shProcessPathData(SHPath *p,
       
       if (flags & SH_PROCESS_SIMPLIFY_LINES) {
         data[2] = pen.x; data[3] = pen.y;
-        (*callback)(p,VG_LINE_TO,command,data,userData);
+        (*callback)(p,VG_LINE_TO, (VGPathCommand)command,data,userData);
         break;
       }
        
-      (*callback)(p,VG_VLINE_TO,command,data,userData);
+      (*callback)(p,VG_VLINE_TO, (VGPathCommand)command,data,userData);
       
       break;
     case VG_QUAD_TO:
+      assert(numcoords == 4);
       
       if (absrel == VG_RELATIVE) {
         data[2] += pen.x; data[3] += pen.y;
@@ -807,10 +829,11 @@ void shProcessPathData(SHPath *p,
       SET2(tan, data[2], data[3]);
       SET2(pen, data[4], data[5]);
       
-      (*callback)(p,VG_QUAD_TO,command,data,userData);
+      (*callback)(p,VG_QUAD_TO, (VGPathCommand)command,data,userData);
       
       break;
     case VG_CUBIC_TO:
+      assert(numcoords == 6);
       
       if (absrel == VG_RELATIVE) {
         data[2] += pen.x; data[3] += pen.y;
@@ -821,10 +844,11 @@ void shProcessPathData(SHPath *p,
       SET2(tan, data[4], data[5]);
       SET2(pen, data[6], data[7]);
       
-      (*callback)(p,VG_CUBIC_TO,command,data,userData);
+      (*callback)(p,VG_CUBIC_TO, (VGPathCommand)command,data,userData);
       
       break;
     case VG_SQUAD_TO:
+      assert(numcoords == 2);
       
       if (absrel == VG_RELATIVE) {
         data[2] += pen.x; data[3] += pen.y;
@@ -836,14 +860,15 @@ void shProcessPathData(SHPath *p,
       if (flags & SH_PROCESS_SIMPLIFY_CURVES) {
         data[2] = tan.x; data[3] = tan.y;
         data[4] = pen.x; data[5] = pen.y;
-        (*callback)(p,VG_QUAD_TO,command,data,userData);
+        (*callback)(p,VG_QUAD_TO, (VGPathCommand)command,data,userData);
         break;
       }
       
-      (*callback)(p,VG_SQUAD_TO,command,data,userData);
+      (*callback)(p,VG_SQUAD_TO, (VGPathCommand)command,data,userData);
       
       break;
     case VG_SCUBIC_TO:
+      assert(numcoords == 4);
       
       if (absrel == VG_RELATIVE) {
         data[2] += pen.x; data[3] += pen.y;
@@ -858,15 +883,16 @@ void shProcessPathData(SHPath *p,
         data[3] = 2*pen.y - tan.y;
         data[4] = tan.x; data[5] = tan.y;
         data[6] = pen.x; data[7] = pen.y;
-        (*callback)(p,VG_CUBIC_TO,command,data,userData);
+        (*callback)(p,VG_CUBIC_TO, (VGPathCommand) command,data,userData);
         break;
       }
       
-      (*callback)(p,VG_SCUBIC_TO,command,data,userData);
+      (*callback)(p,VG_SCUBIC_TO, (VGPathCommand)command,data,userData);
       
       break;
     case VG_SCWARC_TO: case VG_SCCWARC_TO:
     case VG_LCWARC_TO: case VG_LCCWARC_TO:
+      assert(numcoords == 5);
       
       if (absrel == VG_RELATIVE) {
         data[5] += pen.x; data[6] += pen.y;
@@ -880,13 +906,13 @@ void shProcessPathData(SHPath *p,
       
       if (flags & SH_PROCESS_CENTRALIZE_ARCS) {
         if (shCentralizeArc(command, data))
-          (*callback)(p,segment,command,data,userData);
+          (*callback)(p, (VGPathSegment)segment, (VGPathCommand)command,data,userData);
         else
-          (*callback)(p,VG_LINE_TO,command,data,userData);
+          (*callback)(p,VG_LINE_TO, (VGPathCommand)command,data,userData);
         break;
       }
       
-      (*callback)(p,segment,command,data,userData);
+      (*callback)(p, (VGPathSegment)segment, (VGPathCommand)command,data,userData);
       break;
       
     } /* switch (command) */
@@ -1143,6 +1169,9 @@ VG_API_CALL void vgTransformPath(VGPath dstPath, VGPath srcPath)
   dst->data = newData;
   dst->segCount = segCount;
   dst->dataCount = dataCount;
+
+  /* Mark change */
+  dst->cacheDataValid = VG_FALSE;
   
   VG_RETURN_ERR(VG_NO_ERROR, VG_NO_RETVAL);
 }
@@ -1202,10 +1231,22 @@ VG_API_CALL VGboolean vgInterpolatePath(VGPath dstPath, VGPath startPath,
   /* Allocate storage for processed path data */
   shProcessedDataCount(start, processFlags, &procSegCount1, &procDataCount1);
   shProcessedDataCount(end, processFlags, &procSegCount2, &procDataCount2);
-  procSegs1 = (SHuint8*)malloc(procSegCount1 * sizeof(SHuint8));
-  procSegs2 = (SHuint8*)malloc(procSegCount2 * sizeof(SHuint8));
-  procData1 = (SHfloat*)malloc(procDataCount1 * sizeof(SHfloat));
-  procData2 = (SHfloat*)malloc(procDataCount2 * sizeof(SHfloat));
+  if(procSegCount1 > 0) { // prevent allocation of 0 bytes (CERT MEM04-C)
+    procSegs1 = (SHuint8*)malloc(procSegCount1 * sizeof(SHuint8));
+    procData1 = (SHfloat*)malloc(procDataCount1 * sizeof(SHfloat));
+  }
+  else {
+    procSegs1 = NULL;
+    procData1 = NULL;
+  }
+  if(procSegCount2 > 0) {
+    procSegs2 = (SHuint8*)malloc(procSegCount2 * sizeof(SHuint8));
+    procData2 = (SHfloat*)malloc(procDataCount2 * sizeof(SHfloat));
+  }
+  else {
+    procSegs2 = NULL;
+    procData2 = NULL;
+  }
   if (!procSegs1 || !procSegs2 || !procData1 || !procData2) {
     free(procSegs1); free(procSegs2); free(procData1); free(procData2);
     VG_RETURN_ERR(VG_OUT_OF_MEMORY_ERROR, VG_FALSE);
@@ -1277,6 +1318,9 @@ VG_API_CALL VGboolean vgInterpolatePath(VGPath dstPath, VGPath startPath,
   dst->data = newData;
   dst->segCount += procSegCount1;
   dst->dataCount += procDataCount1;
+
+  /* Mark change */
+  dst->cacheDataValid = VG_FALSE;
   
   VG_RETURN_ERR(VG_NO_ERROR, VG_TRUE);
 }
