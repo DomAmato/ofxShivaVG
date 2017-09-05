@@ -33,30 +33,30 @@ class simpleVGContext
         simpleVGContext();
         ~simpleVGContext();
     
-		void create(VGint w, VGint h);
+        void create(VGint w, VGint h) const;
     
-		void setFillColor(VGint r, VGint g, VGint b, VGint a);
-		void setFillColor(VGfloat r, VGfloat g, VGfloat b, VGfloat a);
-		void setStrokeWidth(VGfloat w);
-		void setStrokeCapStyle(VGCapStyle cap);
-		void setStrokeJoinStyle(VGJoinStyle join);
-		void setStrokeColor(VGint r, VGint g, VGint b, VGint a);
-		void setStrokeColor(VGfloat r, VGfloat g, VGfloat b, VGfloat a);
-		VGfloat getStrokeWidth();
-		VGCapStyle getStrokeCapStyle();
-		VGJoinStyle getStrokeJoinStyle();
+        void setFillColor(VGint r, VGint g, VGint b, VGint a) const;
+        void setFillColor(VGfloat r, VGfloat g, VGfloat b, VGfloat a) const;
+        void setStrokeWidth(VGfloat w) const;
+        void setStrokeCapStyle(VGCapStyle cap) const;
+        void setStrokeJoinStyle(VGJoinStyle join) const;
+        void setStrokeColor(VGint r, VGint g, VGint b, VGint a) const;
+        void setStrokeColor(VGfloat r, VGfloat g, VGfloat b, VGfloat a) const;
+        VGfloat getStrokeWidth() const;
+        VGCapStyle getStrokeCapStyle() const;
+        VGJoinStyle getStrokeJoinStyle() const;
     
-		void fillPath(simpleVGPath &path);
-		void strokePath(simpleVGPath &path);
+        void fillPath(simpleVGPath &path) const;
+        void strokePath(simpleVGPath &path) const;
     
-	private:
+    private:
     
-		bool _hasContext;
-		VGPaint _fillPaint = 0;
-		VGPaint _strokePaint = 0;
-		VGfloat _strokeWidth;
-		VGCapStyle _strokeCapStyle;
-		VGJoinStyle _strokeJoinStyle;
+        mutable bool _hasContext;
+        mutable VGPaint _fillPaint = 0;
+        mutable VGPaint _strokePaint = 0;
+        mutable VGfloat _strokeWidth;
+        mutable VGCapStyle _strokeCapStyle;
+        mutable VGJoinStyle _strokeJoinStyle;
 };
 
 #endif

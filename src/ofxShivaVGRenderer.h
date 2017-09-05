@@ -31,34 +31,29 @@ class ofxShivaVGRenderer : public ofGLRenderer
 {
     public:
     
-	    ofxShivaVGRenderer();
+        ofxShivaVGRenderer();
     
-	    void background(const ofColor & c);
-    	void clear(float r, float g, float b, float a=0);
-		void clear(float brightness, float a=0);
+        void background(const ofColor & c);
+        void clear(float r, float g, float b, float a=0);
+        void clear(float brightness, float a=0);
 
-	    void draw(ofPolyline & poly);
-	    void draw(ofPath &path);
-    	void drawCircle(float x, float y, float z,  float radius);
-    	void drawEllipse(float x, float y, float z, float width, float height);
-    	void drawLine(float x1, float y1, float z1, float x2, float y2, float z2);
-    	void setLineCapStyle(VGCapStyle cap);
-    	void setLineJoinStyle(VGJoinStyle join);
-	    VGCapStyle getLineCapStyle();
-	    VGJoinStyle getLineJoinStyle();
+        void draw(const ofPolyline & poly) const;
+        void draw(const ofPath & path) const;
+        void drawCircle(float x, float y, float z,  float radius) const;
+        void drawEllipse(float x, float y, float z, float width, float height) const;
+        void drawLine(float x1, float y1, float z1, float x2, float y2, float z2) const;
+        void setLineCapStyle(VGCapStyle cap) const;
+        void setLineJoinStyle(VGJoinStyle join) const;
+        VGCapStyle getLineCapStyle() const;
+        VGJoinStyle getLineJoinStyle() const;
     
-        bool rendersPathPrimitives()
-    	{
-            return true;
-        }
+    private:
     
-	private:
+        mutable simpleVGContext _vg;
+        mutable deque<ofPoint> _curvePoints;
+        mutable ofFloatColor _bgColor;
     
-	    simpleVGContext _vg;
-        deque<ofPoint> _curvePoints;
-	    ofFloatColor _bgColor;
-    
-    	void _doDrawPath(ofPath &path, simpleVGPath &toPath);
+        void _doDrawPath(const ofPath & path, simpleVGPath & toPath) const;
     
 };
 

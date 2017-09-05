@@ -29,19 +29,19 @@ simpleVGContext::simpleVGContext()
     
 }
 
-void simpleVGContext::create(VGint w, VGint h)
+void simpleVGContext::create(VGint w, VGint h) const
 {
     _hasContext = vgCreateContextSH(w, h);
     vgSeti(VG_RENDERING_QUALITY, VG_RENDERING_QUALITY_BETTER);
 }
 
 
-void simpleVGContext::setFillColor(VGint r, VGint g, VGint b, VGint a)
+void simpleVGContext::setFillColor(VGint r, VGint g, VGint b, VGint a) const
 {
     setFillColor(r/255.0f, g/255.0f, b/255.0f, a/255.0f);
 }
 
-void simpleVGContext::setFillColor(VGfloat r, VGfloat g, VGfloat b, VGfloat a)
+void simpleVGContext::setFillColor(VGfloat r, VGfloat g, VGfloat b, VGfloat a) const
 {
     if (_fillPaint) vgDestroyPaint(_fillPaint);
     
@@ -51,12 +51,12 @@ void simpleVGContext::setFillColor(VGfloat r, VGfloat g, VGfloat b, VGfloat a)
     vgSetPaint(_fillPaint, VG_FILL_PATH);
 }
 
-void simpleVGContext::setStrokeColor(VGint r, VGint g, VGint b, VGint a)
+void simpleVGContext::setStrokeColor(VGint r, VGint g, VGint b, VGint a) const
 {
     setStrokeColor(r/255.0f, g/255.0f, b/255.0f, a/255.0f);
 }
 
-void simpleVGContext::setStrokeColor(VGfloat r, VGfloat g, VGfloat b, VGfloat a)
+void simpleVGContext::setStrokeColor(VGfloat r, VGfloat g, VGfloat b, VGfloat a) const
 {
     if (_strokePaint) vgDestroyPaint(_strokePaint);
     
@@ -66,45 +66,45 @@ void simpleVGContext::setStrokeColor(VGfloat r, VGfloat g, VGfloat b, VGfloat a)
     vgSetPaint(_strokePaint, VG_STROKE_PATH);
 }
 
-void simpleVGContext::setStrokeWidth(VGfloat w)
+void simpleVGContext::setStrokeWidth(VGfloat w) const
 {
     _strokeWidth = w;
     vgSeti(VG_STROKE_LINE_WIDTH, w);
 }
 
-VGfloat simpleVGContext::getStrokeWidth()
+VGfloat simpleVGContext::getStrokeWidth() const
 {
     return _strokeWidth;
 }
 
-void simpleVGContext::setStrokeJoinStyle(VGJoinStyle join)
+void simpleVGContext::setStrokeJoinStyle(VGJoinStyle join) const
 {
     _strokeJoinStyle = join;
     vgSeti(VG_STROKE_JOIN_STYLE, join);
 }
 
-void simpleVGContext::setStrokeCapStyle(VGCapStyle cap)
+void simpleVGContext::setStrokeCapStyle(VGCapStyle cap) const
 {
     _strokeCapStyle = cap;
     vgSeti(VG_STROKE_CAP_STYLE, cap);
 }
 
-VGCapStyle simpleVGContext::getStrokeCapStyle()
+VGCapStyle simpleVGContext::getStrokeCapStyle() const
 {
     return _strokeCapStyle;
 }
 
-VGJoinStyle simpleVGContext::getStrokeJoinStyle()
+VGJoinStyle simpleVGContext::getStrokeJoinStyle() const
 {
     return _strokeJoinStyle;
 }
 
-void simpleVGContext::fillPath(simpleVGPath &path)
+void simpleVGContext::fillPath(simpleVGPath &path) const
 {
     vgDrawPath(path.getVGPath(), VG_FILL_PATH);
 }
 
-void simpleVGContext::strokePath(simpleVGPath &path)
+void simpleVGContext::strokePath(simpleVGPath &path) const
 {
     vgDrawPath(path.getVGPath(), VG_STROKE_PATH);
 }
